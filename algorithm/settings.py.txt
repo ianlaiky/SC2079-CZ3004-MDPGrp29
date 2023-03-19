@@ -1,0 +1,42 @@
+import socket
+
+# Connection - PC
+PC_HOST: str = "192.168.29.37" 
+#PC_HOST: str = socket.gethostbyname(socket.gethostname())
+PC_PORT: int = 8000
+
+# Connection - RPi
+RPI_HOST: str = "192.168.29.1"
+RPI_PORT: int = 4161
+
+# PyGame settings
+FRAMES = 60
+SCALER = 4
+WINDOW_SIZE = 800, 800
+
+# Grid Attributes
+GRID_CELL_SIZE = 10 * SCALER # Both length and width
+GRID_SIZE = 200 * SCALER # Both length and width
+# This is used instead of ROBOT_SAFE_DIST (Diff of 5 units) to give some leeway when moving the robot when
+# it exits the grid cell boiundary
+GRID_NUM_CELLS = GRID_SIZE // GRID_CELL_SIZE
+GRID_START_BOX_LENGTH = 30 * SCALER
+
+# Robot Attributes
+ROBOT_SIZE = 20 * SCALER
+ROBOT_TURNING_RADIUS = 20 * SCALER #This is not used for now
+ROBOT_SCALER = ROBOT_SIZE / ROBOT_TURNING_RADIUS  # FROM briefing notes of Imperial
+ROBOT_VELOCITY = 50 * SCALER # cm per second
+ROBOT_SCAN_TIME = 0.25  # Time allowed to scan an obstacle image in seconds, increase if need for time for image recognition
+ROBOT_SAFE_DIST = 15.0001 * SCALER #Initialise the robot for path planning to check if it will crash (INCREASE THIS IF ITS CRASHING)
+
+# Obstacle Attributes
+OBSTACLE_SIZE = 10 * SCALER
+# Target position offset from the boarder of the obstacle (CHANGE THIS IF ROBOT TOO CLOSE/FAR)
+OBSTACLE_SAFE_DIST = ROBOT_SAFE_DIST // 3 * 4  # With respect to the center of the obstacle
+
+# Path Finding Attributes
+PATH_TURN_COST = 999 * ROBOT_VELOCITY * ROBOT_TURNING_RADIUS
+# NOTE: Higher number == Lower Granularity == Faster Checking.
+# Must be an integer more than 0! Number higher than 3 not recommended.
+PATH_TURN_CHECK_GRANULARITY = 1 # Ticks
