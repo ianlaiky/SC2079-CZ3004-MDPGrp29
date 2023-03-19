@@ -1,0 +1,17 @@
+﻿package com.mdp.team29;
+
+import androidx.lifecycle.MutableLiveData;
+import androidx.lifecycle.ViewModel;
+
+import com.mdp.team29.models.ArenaGame;
+
+public class LiveViewModels extends ViewModel {
+    private MutableLiveData<ArenaGame> currentLiveGame1;
+
+    public MutableLiveData<ArenaGame> getMutableLiveGameData(){
+        if(currentLiveGame1 == null){ // if no existing game init a new live game
+            currentLiveGame1 = new MutableLiveData<ArenaGame>();
+        }
+        return currentLiveGame1;
+    }
+}

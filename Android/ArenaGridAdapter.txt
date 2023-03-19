@@ -1,0 +1,254 @@
+﻿package com.mdp.team29;
+
+import static android.content.ClipDescription.MIMETYPE_TEXT_PLAIN;
+
+import android.annotation.SuppressLint;
+import android.content.ClipData;
+import android.content.ClipDescription;
+import android.content.Context;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
+import android.os.Build;
+import android.util.Log;
+import android.util.TypedValue;
+import android.view.DragEvent;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.fragment.app.FragmentManager;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.lifecycle.MutableLiveData;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.mdp.team29.fragments.EditCellDialogFragment;
+import com.mdp.team29.models.ArenaGame;
+import com.mdp.team29.models.Cell;
+
+import java.util.List;
+
+public class ArenaGridAdapter extends RecyclerView.Adapter<ArenaGridAdapter.TileViewHolder> {
+    private List<Cell> cells;
+    private OnCellClickListener listener;
+    private ImageUtils imageMapper;
+    private MutableLiveData<ArenaGame> liveGame1;
+    private Context context;
+    private ArenaGame game1;
+    private FragmentManager fragmentManager;
+
+    public ArenaGridAdapter(MutableLiveData<ArenaGame> liveGame1, LifecycleOwner owner, FragmentManager fragmentManager) {
+        this.liveGame1 = liveGame1;
+        game1 = liveGame1.getValue();
+        cells = game1.getArenaMap().getCells();
+        this.fragmentManager = fragmentManager;
+        liveGame1.observe(owner, liveGame1Instance->{
+            game1 = liveGame1Instance;
+            cells = game1.getArenaMap().getCells();
+            notifyDataSetChanged();
+        });
+    }
+
+    @NonNull
+    @Override
+    public TileViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        imageMapper = new ImageUtils(parent.getContext());
+        View itemCell = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_cell, parent, false); // inflate the viewholder with item_cell layout
+        return new TileViewHolder(itemCell);
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull ArenaGridAdapter.TileViewHolder holder, int position) {
+        holder.bind(cells.get(position));
+        holder.setIsRecyclable(false);
+    }
+
+    @Override
+    public int getItemCount() {
+        return cells.size();
+    }
+
+    class TileViewHolder extends RecyclerView.ViewHolder {
+        TextView valueTextView;
+        int imageresource;
+
+        public TileViewHolder(@NonNull View itemView) {
+            super(itemView);
+        }
+        @SuppressLint("ResourceAsColor")
+        public void bind(final Cell cell) {
+            itemView.setBackgroundColor(Color.GRAY);
+
+            imageresource  = imageMapper.getImageResource(cell.getImageId());
+            valueTextView = itemView.findViewById(R.id.item_cell_value);
+            itemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    if(cell.isObstacle()){
+                        //cell.rotateCell(); // to rotate cell attribute
+                        Log.e("CheckDirection",cell.getDirection().toString());
+                        EditCellDialogFragment editNameDialogFragment = EditCellDialogFragment.newInstance(cell);
+                        editNameDialogFragment.show(fragmentManager, "fragment_edit_cell_dialog");
+                        //game1.getArenaMap().deleteObstacle(cell.getX(),19-cell.getY()); /**************/
+                    }
+                    else if(cell.isEmpty()){
+                        game1.getArenaMap().createObstacle(cell.getX(),19-cell.getY());
+                    }
+//                    liveGame1.setValue(game1);
+                    notifyDataSetChanged();
+                }
+            });
+
+            if(cell.isObstacle()){
+                itemView.setBackgroundColor(Color.WHITE);
+                // Code for click to change direction
+//                itemView.setBackgroundResource(R.drawable.imageborder);
+//                switch(cell.getDirection()){
+//                    case UP:
+//                        itemView.setRotation(0);
+//                        break;
+//                    case DOWN:
+//                        itemView.setRotation(180);
+//                        break;
+//                    case LEFT:
+//                        itemView.setRotation(270);
+//                        break;
+//                    case RIGHT:
+//                        itemView.setRotation(90);
+//                        break;
+//                }
+
+                switch(cell.getDirection()){
+                    case UP:
+                        itemView.setBackgroundResource(R.drawable.obstacle_up);
+                        break;
+                    case DOWN:
+                        itemView.setBackgroundResource(R.drawable.obstacle_down);
+                        break;
+                    case LEFT:
+                        itemView.setBackgroundResource(R.drawable.obstacle_left);
+                        break;
+                    case RIGHT:
+                        itemView.setBackgroundResource(R.drawable.obstacle_right);
+                        break;
+                }
+
+                if(!cell.isPathDiscovered()){
+                    valueTextView.setText(""+cell.getObstacleId());
+//                    Testing Discovered Text
+//                    valueTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+//                    valueTextView.setTypeface(null, Typeface.BOLD);
+                }
+                else{ //Set discovered value
+                    valueTextView.setText(""+cell.getImageId());
+                    valueTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+                    valueTextView.setTypeface(null, Typeface.BOLD);
+                }
+
+            }
+            else{
+                if (cell.getImageId() == 0) {
+                    //itemView.setBackgroundColor(Color.BLACK);
+                    itemView.setBackgroundColor(Color.parseColor("#32CD32"));
+                }else {
+
+                    itemView.setBackgroundResource(imageresource);
+                }
+            }
+
+            // code to  change obstacle when discovered
+            if(cell.isFound()){
+                valueTextView.setText(cell.getName());
+                valueTextView.setTextSize(16);
+                valueTextView.setBackgroundColor(Color.GREEN);
+            }
+            if(cell.isRobot()){ // robot direction of image
+                //Log.e("CELLADAPTER","ISROBOT");
+                switch (cell.getDirection()){
+                    case UP: itemView.setRotation(0);break;
+                    case RIGHT: itemView.setRotation(90);break;
+                    case DOWN: itemView.setRotation(180);break;
+                    case LEFT: itemView.setRotation(270);break;
+                    default: break;
+
+                }
+            }
+
+            itemView.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override
+                public boolean onLongClick(View view) {
+                    if (cell.isObstacle() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        View.DragShadowBuilder builder = new View.DragShadowBuilder(itemView);
+                        CharSequence label = ""+cell.getX()+","+(19-cell.getY());
+                        ClipData.Item item = new ClipData.Item(""+cell.getX()+","+(19-cell.getY()));
+                        String[] mimeType = {MIMETYPE_TEXT_PLAIN};
+                        view.startDragAndDrop(new ClipData(label,mimeType,item),builder,itemView,0);
+                    }
+                    return true;
+                }
+            });
+
+            //Drag listener for dropping onto grid
+            itemView.setOnDragListener(new View.OnDragListener() {
+                @Override
+                public boolean onDrag(View view, DragEvent dragEvent) {
+                    switch(dragEvent.getAction()){
+                        case DragEvent.ACTION_DRAG_STARTED:
+                            //Log.d("OBSTACLE","DRAGGING EVENT STARTED");
+                            return true;
+                        case DragEvent.ACTION_DRAG_ENTERED:
+                            Log.d("OBSTACLE","ENTERED CELL X: "+cell.getX()+" Y: "+(19-cell.getY()));
+                            if(cell.isEmpty()){
+                                itemView.setBackgroundColor(Color.GRAY);
+                                itemView.invalidate();
+                            }
+                            return true;
+                        case DragEvent.ACTION_DRAG_LOCATION:
+                            return true;
+                        case DragEvent.ACTION_DRAG_EXITED:
+                            //Log.d("OBSTACLE","DRAGGING EVENT EXITED");
+                            if(cell.isEmpty()){
+                                itemView.setBackgroundColor(Color.BLACK);
+                                itemView.invalidate();
+                            }
+                            return true;
+                        case DragEvent.ACTION_DROP:
+                            Log.d("OBSTACLE","DRAGGING EVENT DROPPPED");
+                            Log.d("OBSTACLE","FROM "+dragEvent.getClipData().getItemAt(0).getText());
+                            if(cell.isEmpty()){
+                                ClipData.Item data = dragEvent.getClipData().getItemAt(0);
+                                String[] args = data.getText().toString().split(",");
+                                int startX = Integer.parseInt(args[0]);
+                                int startY = Integer.parseInt(args[1]);
+                                game1.getArenaMap().moveObstacle(startX,startY,cell.getX(),19-cell.getY());
+
+                                //Send updated data
+                                try{
+                                    String msg = "["+cell.getX()+","+(19-cell.getY())+","+cell.getDirection().ordinal()+","+cell.getObstacleId()+"]";
+                                    Log.d("OBSTACLE", msg);
+                                    //game1.getComsUtils().write(msg.getBytes());
+                                    Toast.makeText(view.getContext(), msg,Toast.LENGTH_SHORT).show();
+                                }catch (Exception e){
+                                    Toast.makeText(view.getContext(), e.getLocalizedMessage(),Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                            notifyDataSetChanged();
+                            return true;
+                        case DragEvent.ACTION_DRAG_ENDED:
+                            //Log.d("OBSTACLE","DRAGGING EVENT ENDED");
+                            return true;
+                    }
+                    return true;
+                }
+            });
+
+        }
+
+    }
+
+
+}

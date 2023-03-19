@@ -1,0 +1,352 @@
+﻿package com.mdp.team29.models;
+
+import android.content.Context;
+import android.os.Handler;
+import android.util.Log;
+import android.widget.Toast;
+
+import com.mdp.team29.CommsUtils;
+import com.mdp.team29.Directions;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+public class ArenaGame {
+    String TAG = "ArenaGame";
+    private String target;
+    private String reveal_target;
+    private ArenaMap arenaMap;
+    public CommsUtils commsUtils;
+    private Context context;
+    public String bluetoothStatus= "Not Initialized";
+
+    private int total_obstacles = 0;
+    private int found_obstacles = 0;
+
+    public int getTotal_obstacles() {
+        return total_obstacles;
+    }
+
+    public void setTotal_obstacles(int total_obstacles) {
+        this.total_obstacles = total_obstacles;
+    }
+
+    public int getFound_obstacles() {
+        return found_obstacles;
+    }
+
+    public void setFound_obstacles(int found_obstacles) {
+        this.found_obstacles = found_obstacles;
+    }
+
+    public ArenaGame(int size, Context context){
+        arenaMap = new ArenaMap(size);
+        this.context = context;
+        this.target="None";
+        this.reveal_target="False";
+    }
+
+    public String getTarget() {
+        return target;
+    }
+
+    public void setTarget(String target) {
+        this.target = target;
+    }
+
+    public String getReveal_target() {
+        return reveal_target;
+    }
+
+    public void setReveal_target(String reveal_target) {
+        this.reveal_target = reveal_target;
+    }
+
+    public void setContext(Context context) {
+        this.context = context;
+    }
+
+    public void setCommsUtils(CommsUtils commsUtils) {
+        this.commsUtils = commsUtils;
+    }
+
+    public String getBluetoothStatus() {
+        return bluetoothStatus;
+    }
+
+    public void setBluetoothStatus(String bluetoothStatus) {
+        this.bluetoothStatus = bluetoothStatus;
+    }
+
+    public CommsUtils getCommsUtils() {
+        return commsUtils;
+    }
+
+    public Context getContext() {
+        return context;
+    }
+
+    public ArenaMap getArenaMap() {
+        return arenaMap;
+    }
+
+    public void setArenaMap(ArenaMap arenaMap) {
+        this.arenaMap = arenaMap;
+        //
+    }
+
+    // Initalize Communications
+    public void initComms(Handler handler){
+        commsUtils = new CommsUtils(handler);
+    }
+    public boolean ComsCheck(){
+        if(commsUtils==null){
+            return false;
+        }
+        else {
+            return true;
+        }
+    }
+
+    public CommsUtils getComsUtils(){
+        return commsUtils;
+    }
+
+    public void writeToChatUtil(String message){
+        if(ComsCheck()){
+            commsUtils.write(message.getBytes());
+        }
+        else{
+            Log.d("writeToChatUtil","No Connection"+message);
+        }
+        Log.d("writeToChatUtil","message: "+message);
+
+    }
+    //Handle Communication From Bluetooth Device
+    //TODO: Change here for reading msg
+    public void handleCommunications(String inputBuffer){
+        try{
+            String[] filter = inputBuffer.split("\\|");
+
+            //TODO img|1|28&move|f|100
+            if(Objects.equals(filter[0], "img")){
+                //REVEALS FOUND TARGET
+                String[] filter1 = inputBuffer.split("&");
+                if(filter[2].charAt(filter[2].length()-1)=='&'){
+                    filter[2]= removeLastChar(filter[2]);
+                    int obstacleId = Integer.parseInt(filter[1]);
+                    String revealedObs = filter[2];
+                    int x =  getArenaMap().getObstacleMap().get(obstacleId).getX();
+                    int y =  getArenaMap().getObstacleMap().get(obstacleId).getY();
+                    Log.e("CommsHandlingX",x+"");
+                    Log.e("CommsHandlingY",y+"");
+                    getArenaMap().cellLocation(x,y).setName(revealedObs);
+                    getArenaMap().cellLocation(x,y).setFound(true);
+                    setReveal_target(revealedObs);
+                    found_obstacles+=1;
+                    if(found_obstacles==total_obstacles){
+                        getArenaMap().getCar().setStatus("All Obs Found");
+                    }
+                }
+                else{
+                    String[] filter_img = filter1[0].split("\\|");
+                    int obstacleId = Integer.parseInt(filter_img[1]);
+                    String revealedObs = filter_img[2];
+                    int x =  getArenaMap().getObstacleMap().get(obstacleId).getX();
+                    int y =  getArenaMap().getObstacleMap().get(obstacleId).getY();
+                    Log.e("CommsHandlingX",x+"");
+                    Log.e("CommsHandlingY",y+"");
+                    getArenaMap().cellLocation(x,y).setName(revealedObs);
+                    getArenaMap().cellLocation(x,y).setFound(true);
+                    setReveal_target(revealedObs);
+                    found_obstacles+=1;
+                    if(found_obstacles==total_obstacles){
+                        getArenaMap().getCar().setStatus("All Obs Found");
+                    }
+                    String[] filter_move = filter1[1].split("\\|");
+                    int steps = Integer.parseInt(filter_move[2]);
+                    switch (filter_move[1]){
+                        case "f":
+                            for(int i = 0;i < steps; i+=10){
+                                getArenaMap().carMoveUp();
+                            }
+                            break;
+                        case "b":
+                            for(int i = 0;i < steps; i+=10){
+                                getArenaMap().carMoveDown();
+                            }
+                            break;
+                        case "t":
+                            getArenaMap().carMoveUp();
+                            getArenaMap().carMoveUp();
+                            getArenaMap().carMoveLeft();
+                            getArenaMap().carMoveUp();
+                            getArenaMap().carMoveUp();
+                            getArenaMap().carMoveUp();
+                            getArenaMap().carMoveUp();
+                            break;
+                        case "u":
+                            getArenaMap().carMoveUp();
+                            getArenaMap().carMoveUp();
+                            getArenaMap().carMoveRight();
+                            getArenaMap().carMoveUp();
+                            getArenaMap().carMoveUp();
+                            getArenaMap().carMoveUp();
+                            getArenaMap().carMoveUp();
+                            break;
+                        case "g":
+                            getArenaMap().carMoveDown();
+                            getArenaMap().carMoveDown();
+                            getArenaMap().carMoveDown();
+                            getArenaMap().carMoveDown();
+                            getArenaMap().carMoveRight();
+                            getArenaMap().carMoveDown();
+                            getArenaMap().carMoveDown();
+                            break;
+                        case "j":
+                            getArenaMap().carMoveDown();
+                            getArenaMap().carMoveDown();
+                            getArenaMap().carMoveDown();
+                            getArenaMap().carMoveDown();
+                            getArenaMap().carMoveLeft();
+                            getArenaMap().carMoveDown();
+                            getArenaMap().carMoveDown();
+                            break;
+                    }
+
+                    //filter1[1]// move command
+                    //filter1[0]// image command
+
+                }
+
+            }//TODO                 getArenaMap().getCar().setStatus("Scanning Target");
+
+            else if (Objects.equals(filter[0], "move")){
+                //TODO Currently Turn: 20 Forward 40 in turning direction || 40 Backwards then 20 in turning direction
+
+                getArenaMap().getCar().setStatus("Moving");
+                int steps = Integer.parseInt(filter[2]);
+                switch (filter[1]){
+                    case "f":
+                        for(int i = 0;i < steps; i+=10){
+                            getArenaMap().carMoveUp();
+                        }
+                        break;
+                    case "b":
+                        for(int i = 0;i < steps; i+=10){
+                            getArenaMap().carMoveDown();
+                        }
+                        break;
+                    case "t":
+                        getArenaMap().carMoveUp();
+                        getArenaMap().carMoveUp();
+                        getArenaMap().carMoveLeft();
+                        getArenaMap().carMoveUp();
+                        getArenaMap().carMoveUp();
+                        getArenaMap().carMoveUp();
+                        getArenaMap().carMoveUp();
+                        break;
+                    case "u":
+                        getArenaMap().carMoveUp();
+                        getArenaMap().carMoveUp();
+                        getArenaMap().carMoveRight();
+                        getArenaMap().carMoveUp();
+                        getArenaMap().carMoveUp();
+                        getArenaMap().carMoveUp();
+                        getArenaMap().carMoveUp();
+                        break;
+                    case "g":
+                        getArenaMap().carMoveDown();
+                        getArenaMap().carMoveDown();
+                        getArenaMap().carMoveDown();
+                        getArenaMap().carMoveDown();
+                        getArenaMap().carMoveRight();
+                        getArenaMap().carMoveDown();
+                        getArenaMap().carMoveDown();
+                        break;
+                    case "j":
+                        getArenaMap().carMoveDown();
+                        getArenaMap().carMoveDown();
+                        getArenaMap().carMoveDown();
+                        getArenaMap().carMoveDown();
+                        getArenaMap().carMoveLeft();
+                        getArenaMap().carMoveDown();
+                        getArenaMap().carMoveDown();
+                        break;
+                }
+            }
+            else if (Objects.equals(filter[0], "ROBOT")){
+                // this only adds new car not update location
+                int x = Integer.parseInt(filter[1]);
+                int y = Integer.parseInt(filter[2]);
+                String dir = filter[3];
+                if(getArenaMap().cellLocation(x,y).isObstacle()){
+                    Toast.makeText(getContext(),"Unable to Set Robot on Map as it is on Obstacle",Toast.LENGTH_SHORT).show();
+                }
+                else{
+                    List<Cell> Cells = getArenaMap().getCells();
+                    for(int i = 0; i < Cells.size();i++){
+                        if(Cells.get(i).isRobot()){
+                            Cells.get(i).setType(Cell.Types.EMPTY);
+                            Cells.get(i).setImageId(0);
+                        }
+                    }
+                    getArenaMap().setCells(Cells);
+                    switch (dir){
+                        case "90":
+                            getArenaMap().setCar(x,y, Directions.UP);
+                            break;
+                        case "-90":
+                            getArenaMap().setCar(x,y, Directions.DOWN);
+                            break;
+                        case "0":
+                            getArenaMap().setCar(x,y, Directions.RIGHT);
+                            break;
+                        case "180":
+                            getArenaMap().setCar(x,y, Directions.LEFT);
+                            break;
+
+                    }
+                }
+
+            }
+            //TODO: UPDATE SCANNING status|1|1
+            else if (Objects.equals(filter[0], "status")){
+                if(Objects.equals(filter[1], "1")) {
+                    getArenaMap().getCar().setStatus("Scanning Target");
+                    setTarget(filter[2]);
+                }
+                if(Objects.equals(filter[1], "2")) getArenaMap().getCar().setStatus("Looking For Target");
+                if(Objects.equals(filter[1], "3")) getArenaMap().getCar().setStatus("Session Ended");
+                if(Objects.equals(filter[1], "4")) getArenaMap().getCar().setStatus("End");
+
+            }
+        }catch (Exception e){
+            Toast.makeText(getContext(),e.getLocalizedMessage(),Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
+        }
+
+    }
+
+    public void saveOurGPA(){
+        Log.e(TAG,PL)
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+    private String removeLastChar(String s)
+    {
+//returns the string after removing the last character
+        return s.substring(0, s.length() - 1);
+    }
+}

@@ -1,0 +1,231 @@
+﻿package com.mdp.team29.fragments;
+
+import android.os.Bundle;
+
+import androidx.annotation.Nullable;
+import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
+
+import android.text.Layout;
+import android.util.Log;
+import android.util.TypedValue;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.mdp.team29.Directions;
+import com.mdp.team29.LiveViewModels;
+import com.mdp.team29.MainActivity;
+import com.mdp.team29.R;
+import com.mdp.team29.models.ArenaGame;
+import com.mdp.team29.models.Cell;
+
+/**
+ * A simple {@link Fragment} subclass.
+ * Use the {@link EditCellDialogFragment#newInstance} factory method to
+ * create an instance of this fragment.
+ */
+public class EditCellDialogFragment extends DialogFragment {
+
+    // TODO: Rename parameter arguments, choose names that match
+    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
+
+
+    // TODO: Rename and change types of parameters
+    private TextView title;
+    private TextView obstacleValue;
+    private LinearLayout cellView;
+    private String id;
+    private ImageButton rotateBtn;
+    private ImageButton deleteBtn;
+    private ImageButton upBtn;
+    private ImageButton downBtn;
+    private ImageButton leftBtn;
+    private ImageButton rightBtn;
+    private ImageButton sendBtn;
+    private LiveViewModels viewModel;
+    private ArenaGame arenaGame;
+
+    private Cell cellIDiag;
+
+    public EditCellDialogFragment(Cell cell) {
+        this.cellIDiag=cell;
+        // Required empty public constructor
+    }
+
+    // TODO: Rename and change types and number of parameters
+    public static EditCellDialogFragment newInstance(Cell cell) {
+        EditCellDialogFragment fragment = new EditCellDialogFragment(cell);
+        Bundle args = new Bundle();
+        fragment.setArguments(args);
+        return fragment;
+    }
+
+//    @Override
+//    public void onCreate(Bundle savedInstanceState) {
+//        super.onCreate(savedInstanceState);
+//        if (getArguments() != null) {
+//            mParam1 = getArguments().getString(ARG_PARAM1);
+//        }
+//    }
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+        // Inflate the layout for this fragment
+        return inflater.inflate(R.layout.fragment_edit_cell_dialog, container, false);
+    }
+
+    @Override
+    public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        viewModel = new ViewModelProvider(requireActivity()).get(LiveViewModels.class);
+        arenaGame = viewModel.getMutableLiveGameData().getValue();
+
+        // Get field from view
+        title           = view.findViewById(R.id.edit_cell_dialog_title);
+        obstacleValue   = view.findViewById(R.id.edit_cell_dialog_obstaclevalue);
+        cellView        = view.findViewById(R.id.edit_cell_dialog_cell);
+        rotateBtn       = view.findViewById(R.id.edit_cell_dialog_rotatebtn);
+        deleteBtn       = view.findViewById(R.id.edit_cell_dialog_deletebtn);
+        upBtn           = view.findViewById(R.id.up_float_btn);;
+        downBtn         = view.findViewById(R.id.down_float_btn);;
+        leftBtn         = view.findViewById(R.id.left_float_btn);;
+        rightBtn        = view.findViewById(R.id.right_float_btn);;
+        sendBtn         = view.findViewById(R.id.edit_cell_dialog_sendbtn);
+
+
+        // Fetch arguments from bundle and set title
+        title.setText("Obstacle No " + cellIDiag.getObstacleId());
+
+
+        if(!cellIDiag.getIdentified()){
+            obstacleValue.setText(""+cellIDiag.getObstacleId());
+        }
+        else{
+            obstacleValue.setText(""+cellIDiag.getImageId());
+            obstacleValue.setTextSize(TypedValue.COMPLEX_UNIT_SP, 96);
+        }
+
+        // Set background
+        updateBackground();
+
+        int x = cellIDiag.getX();
+        int y = 19-cellIDiag.getY();
+
+        rotateBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                arenaGame.getArenaMap().rotateObstacleClockwise(x, y);
+                sendObstacleData(cellIDiag);
+                viewModel.getMutableLiveGameData().setValue(arenaGame);
+                cellView.invalidate();
+                updateBackground();
+            }
+        });
+
+        deleteBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                arenaGame.getArenaMap().deleteObstacle(x, y);
+                viewModel.getMutableLiveGameData().setValue(arenaGame);
+                dismiss();
+            }
+        });
+
+        upBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                cellIDiag.setDirection(Directions.UP);
+                sendObstacleData(cellIDiag);
+                viewModel.getMutableLiveGameData().setValue(arenaGame);
+                updateBackground();
+            }
+        });
+
+        downBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                cellIDiag.setDirection(Directions.DOWN);
+                sendObstacleData(cellIDiag);
+                viewModel.getMutableLiveGameData().setValue(arenaGame);
+                updateBackground();
+            }
+        });
+
+        leftBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                cellIDiag.setDirection(Directions.LEFT);
+                sendObstacleData(cellIDiag);
+                viewModel.getMutableLiveGameData().setValue(arenaGame);
+                updateBackground();
+            }
+        });
+
+        rightBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                cellIDiag.setDirection(Directions.RIGHT);
+                sendObstacleData(cellIDiag);
+                viewModel.getMutableLiveGameData().setValue(arenaGame);
+                updateBackground();
+            }
+        });
+
+        sendBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                sendObstacleData(cellIDiag);
+            }
+        });
+
+
+        getDialog().setTitle(id);
+        // Show soft keyboard automatically and request focus to field
+        getDialog().getWindow().setSoftInputMode(
+                WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
+    }
+
+    private void updateBackground(){
+        Directions dir = cellIDiag.getDirection();
+        switch(dir){
+            case UP:
+                cellView.setBackgroundResource(R.drawable.obstacle_up);
+                break;
+            case DOWN:
+                cellView.setBackgroundResource(R.drawable.obstacle_down);
+                break;
+            case LEFT:
+                cellView.setBackgroundResource(R.drawable.obstacle_left);
+                break;
+            case RIGHT:
+                cellView.setBackgroundResource(R.drawable.obstacle_right);
+                break;
+        }
+    }
+
+    private void sendObstacleData(Cell cell){
+        String dir = "";
+        if(cell.getDirection()==Directions.UP) dir = "90";
+        else if(cell.getDirection()==Directions.DOWN) dir = "-90";
+        else if(cell.getDirection()==Directions.LEFT) dir = "180";
+        else if(cell.getDirection()==Directions.RIGHT) dir = "0";
+
+        try{
+            String msg = "["+cell.getX()+","+(19-cell.getY())+","+dir+","+cell.getObstacleId()+"]";
+            Log.d("OBSTACLE", msg);
+            //arenaGame.getComsUtils().write(msg.getBytes());
+            Toast.makeText(getContext(),"["+cell.getX()+","+(19-cell.getY())+","+cell.getDirection().ordinal()+","+cell.getObstacleId()+"]",Toast.LENGTH_SHORT).show();
+        }catch (Exception e){
+            Toast.makeText(getContext(),e.getLocalizedMessage(),Toast.LENGTH_SHORT).show();
+        }
+    }
+}

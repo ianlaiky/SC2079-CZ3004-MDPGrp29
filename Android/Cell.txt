@@ -1,0 +1,232 @@
+﻿package com.mdp.team29.models;
+
+import android.util.Log;
+
+import com.mdp.team29.Directions;
+
+public class Cell {
+    private String  name;
+    private boolean found;
+    private boolean pathDiscovered;
+    private Directions direction;
+    private Types type;
+    private int size;
+    private int x;
+    private int y;
+    private  int imageId;
+
+    //Obstacle attributes
+    private boolean isObstacle;
+    private int obstacleId;
+    private boolean isIdentified;
+    private static int obstacleNo = 0; //Used for obstacleId creation
+
+    public enum Types{
+        EMPTY,
+        OBSTACLE,
+        R_TOP_LEFT,
+        R_TOP_CENTER,
+        R_TOP_RIGHT,
+        R_MID_LEFT,
+        R_MID_CENTER,
+        R_MID_RIGHT,
+        R_BTM_LEFT,
+        R_BTM_CENTER,
+        R_BTM_RIGHT
+    }
+
+    public Cell(int x, int y) {
+        this.x=x;
+        this.y=y;
+        this.pathDiscovered = false;
+        this.isObstacle = false;
+        this.isIdentified = false;
+        this.imageId = 0;
+        this.obstacleId = 0;
+        this.type=Types.EMPTY;
+        this.direction = Directions.UP;
+        this.found= false;
+        this.name=" ";
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public boolean isFound() {
+        return found;
+    }
+
+    public void setFound(boolean found) {
+        this.found = found;
+    }
+
+    public boolean isIdentified() {
+        return isIdentified;
+    }
+
+    public boolean isPathDiscovered() {
+        return pathDiscovered;
+    }
+
+    public void setPathDiscovered(boolean pathDiscovered) {
+        this.pathDiscovered = pathDiscovered;
+    }
+
+    public void setDirection(Directions direction) {
+        this.direction = direction;
+    }
+
+    public Types getType() {
+        return type;
+    }
+
+    public void setType(Types type) {
+        this.type = type;
+    }
+
+    public void setImageId(int imageId) {
+        this.imageId = imageId;
+    }
+
+    public int getImageId() {
+        return imageId;
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public void setSize(int size) {
+        this.size = size;
+    }
+
+    public void setObstacleId(int obstacleId) {
+        this.obstacleId = obstacleId;
+    }
+
+    public int getObstacleId() {
+        return obstacleId;
+    }
+
+    public void setIdentified(boolean identified) {
+        isIdentified = identified;
+    }
+
+    public boolean getIdentified() {
+        return isIdentified;
+    }
+
+
+    public static int getObstacleNo() {
+        return obstacleNo;
+    }
+    public static void setObstacleNo(int obstacleNo) {
+        Cell.obstacleNo = obstacleNo;
+    }
+    public static void incObstacleNo() {
+        Cell.obstacleNo += 1;
+    }
+
+    public boolean isObstacle() {
+        return isObstacle;
+    }
+    // add directions later
+    public void setCar(Types type, Directions direction){
+        this.type=type;
+        this.direction=direction;
+        switch(type){
+            case R_TOP_LEFT: imageId = 1; break;
+            case R_TOP_CENTER: imageId = 2; break;
+            case R_TOP_RIGHT: imageId = 3; break;
+
+            case R_MID_LEFT: imageId = 4; break;
+            case R_MID_CENTER: imageId = 5; break;
+            case R_MID_RIGHT: imageId = 6; break;
+
+            case R_BTM_LEFT: imageId = 7; break;
+            case R_BTM_CENTER: imageId = 8; break;
+            case R_BTM_RIGHT: imageId = 9; break;
+            default:return;
+        }
+    }
+    public boolean isRobot(){
+        return type.equals(Types.R_BTM_CENTER) || type.equals(Types.R_BTM_LEFT) || type.equals(Types.R_BTM_RIGHT) || type.equals(Types.R_MID_CENTER) || type.equals(Types.R_MID_RIGHT) ||
+                type.equals(Types.R_MID_LEFT) || type.equals(Types.R_TOP_CENTER) || type.equals(Types.R_TOP_LEFT) || type.equals(Types.R_TOP_RIGHT);
+    }
+    public void setObstacle(boolean obstacle) {
+        isObstacle = obstacle;
+    }
+
+    public int getX() {
+        return x;
+    }
+
+    public void setX(int x) {
+        this.x = x;
+    }
+
+    public int getY() {
+        return y;
+    }
+
+    public void setY(int y) {
+        this.y = y;
+    }
+    public Directions getDirection() {
+        return direction;
+    }
+    public boolean isEmpty() {
+        if(isObstacle() || isRobot()){
+            return false;
+        }
+        return true;
+    }
+    public void  setPositionMoved(){
+        this.pathDiscovered = true;
+        this.type=Types.EMPTY;
+        this.imageId = 42;
+    }
+
+    public void resetCell(){
+        this.pathDiscovered = false;
+        this.isObstacle = false;
+        this.found=false;
+        this.isIdentified = false;
+        this.imageId = 0;
+        this.obstacleId = 0;
+        this.type=Types.EMPTY;
+        this.direction = Directions.UP;
+    }
+
+    public void copyCell(Cell cell){
+        this.pathDiscovered = cell.pathDiscovered;
+        this.isObstacle = cell.isObstacle;
+        this.isIdentified = cell.isIdentified;
+        this.imageId = cell.imageId;
+        this.obstacleId = cell.obstacleId;
+        this.type=cell.type;
+        this.direction = cell.direction;
+    }
+    public void rotateCell(){//to the right
+        switch(direction){
+            case UP:
+                direction=Directions.RIGHT;
+                break;
+            case RIGHT:
+                direction=Directions.DOWN;
+                break;
+            case DOWN:
+                direction=Directions.LEFT;
+                break;
+            case LEFT:
+                direction=Directions.UP;
+                break;
+
+        }
+    }
+}

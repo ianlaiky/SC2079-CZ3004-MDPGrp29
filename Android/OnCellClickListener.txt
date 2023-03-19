@@ -1,0 +1,7 @@
+﻿package com.mdp.team29;
+
+import com.mdp.team29.models.Cell;
+
+public interface OnCellClickListener {
+    void onCellClick(Cell cell);
+}

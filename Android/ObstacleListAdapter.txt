@@ -1,0 +1,48 @@
+﻿package com.mdp.team29;
+
+import android.content.Context;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
+import android.widget.TextView;
+
+import com.mdp.team29.models.Cell;
+
+import java.util.ArrayList;
+
+public class ObstacleListAdapter extends BaseAdapter {
+    Context context;
+    ArrayList<Cell> obstacleList;
+    LayoutInflater inflter;
+    public ObstacleListAdapter(Context context, ArrayList<Cell> obstacleList){
+        this.context = context;
+        this.obstacleList = obstacleList;
+
+        inflter = (LayoutInflater.from(context));
+    }
+
+    @Override
+    public int getCount() {
+        return obstacleList.size();
+    }
+
+    @Override
+    public Object getItem(int i) {
+        return null;
+    }
+
+    @Override
+    public long getItemId(int i) {
+        return 0;
+    }
+
+    @Override
+    public View getView(int i, View view, ViewGroup viewGroup) {
+        view = inflter.inflate(R.layout.obstacle_list_item, null);
+        TextView data = view.findViewById(R.id.item_obstacle_id);
+        Cell obs = obstacleList.get(i);
+        data.setText("OBSTACLE ID: " + obs.getObstacleId() + " | STATUS: " + (obs.isFound() ? "DISCOVERED" : "UNDISCOVERED") + " | TARGET ID: " + obs.getName());
+        return view;
+    }
+}

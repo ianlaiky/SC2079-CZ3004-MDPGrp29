@@ -1,0 +1,453 @@
+﻿package com.mdp.team29;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import android.annotation.SuppressLint;
+import android.bluetooth.BluetoothAdapter;
+import android.content.ClipData;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.DragEvent;
+import android.view.View;
+import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.mdp.team29.fragments.BluetoothFragment;
+import com.mdp.team29.fragments.EditCellDialogFragment;
+import com.mdp.team29.fragments.ObstacleListDialogFragment;
+import com.mdp.team29.models.ArenaGame;
+import com.mdp.team29.models.ArenaMap;
+import com.mdp.team29.models.Cell;
+import com.mdp.team29.models.Coordinates;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+public class MainActivity extends AppCompatActivity implements OnCellClickListener{
+    private static final int REQUEST_ENABLE_BT = 0;
+    private static final int REQUEST_DISCOVERABLE_BT = 0;
+    boolean started = false;
+    ImageView show_saved_image;
+    HashMap test_obstacles = new HashMap<>();
+    ArrayList<Directions> test_obs_dir;
+    ImageButton imageButton_rightback,imageButton_leftback,uploadObstacle_IB,loadsave_obs_IB;
+    private LiveViewModels viewModel;
+    TextView status_textview,bluetoothstat_tv,robot_X_TV,robot_Y_TV,robot_dir_TV,target_rev_tv,target_id_tv;
+    RecyclerView gridRecyclerView;
+    ArenaGridAdapter adapter;
+    ArenaGame game;
+    ArenaGame arenaGame1;
+    Fragment current = null;
+    ImageButton leftButton,rightButton,upButton,downButton,bluetoothButton,imageButton_home;
+    Button resetButton,sendButton,obsListButton;
+
+    private BluetoothAdapter bluetoothAdapter;
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        bluetoothstat_tv=findViewById(R.id.bluetoothstat_tv);
+        status_textview = findViewById(R.id.status_textview);
+        status_textview.setText("Not Connected");
+        //share info
+        viewModel = new ViewModelProvider(this).get(LiveViewModels.class);
+
+        //create the game
+        arenaGame1 = new ArenaGame(20, this);
+        viewModel.getMutableLiveGameData().setValue(arenaGame1);
+        arenaGame1 = viewModel.getMutableLiveGameData().getValue();
+        show_saved_image =  findViewById(R.id.show_saved_image);
+
+
+        robot_dir_TV=(TextView) findViewById(R.id.robot_dir_TV);
+        robot_X_TV=(TextView) findViewById(R.id.robot_X_TV);
+        robot_Y_TV=(TextView) findViewById(R.id.robot_Y_TV);
+        target_rev_tv=(TextView) findViewById(R.id.target_rev_tv);
+        target_id_tv=(TextView) findViewById(R.id.target_id_tv);
+        imageButton_rightback = findViewById(R.id.imageButton_rightback);
+        imageButton_leftback=findViewById(R.id.imageButton_leftback);
+        uploadObstacle_IB = findViewById(R.id.uploadObstacle_IB);
+        loadsave_obs_IB = findViewById(R.id.loadsave_obs_IB);
+        obsListButton = findViewById(R.id.obs_list_btn);
+        uploadObstacle_IB.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                HashMap<Integer, Coordinates> obstacleMap = (HashMap) test_obstacles.clone();
+                arenaGame1.getArenaMap().setObstacleMap(obstacleMap);
+                int order = 1;
+                Cell cell;
+                for (Map.Entry<Integer, Coordinates> obstacle : obstacleMap.entrySet()) {
+                    Coordinates coords = obstacle.getValue();
+                    int x = coords.getX();
+                    int y = coords.getY();
+                    cell = arenaGame1.getArenaMap().cellLocation(x, y);
+                    cell.setObstacle(true);
+                    cell.setName(String.valueOf(order));
+                    cell.setObstacleId(order);
+                    cell.setDirection(test_obs_dir.get(obstacle.getKey()-1));
+                    order+=1;
+                }
+                Toast.makeText(MainActivity.this,"Loaded Obstacles",Toast.LENGTH_SHORT).show();
+                arenaGame1.setTotal_obstacles(test_obstacles.size());
+                viewModel.getMutableLiveGameData().setValue(arenaGame1);
+            }
+
+        });
+
+        loadsave_obs_IB.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Toast.makeText(MainActivity.this,"Saved Obstacles",Toast.LENGTH_SHORT).show();
+                HashMap<Integer, Coordinates> obstacleMap = arenaGame1.getArenaMap().getObstacleMap();
+                test_obstacles = (HashMap) obstacleMap.clone();
+                Log.e("TestSave",test_obstacles.toString());
+                test_obs_dir = new ArrayList<>();
+                Cell cell;
+                for (Map.Entry<Integer, Coordinates> obstacle : obstacleMap.entrySet()) {
+                    Coordinates coords = obstacle.getValue();
+                    int x = coords.getX();
+                    int y = coords.getY();
+                    cell = arenaGame1.getArenaMap().cellLocation(x, y);
+                    test_obs_dir.add(cell.getDirection());
+                }
+                show_saved_image.setVisibility(View.VISIBLE);
+            }
+        });
+        //check and set bluetooth connection
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (bluetoothAdapter == null) {
+            Toast.makeText(getApplicationContext(), "Bluetooth NOT Supported on your current device!", Toast.LENGTH_SHORT).show();
+            bluetoothButton.setEnabled(false); // remember set false in XML page
+        }
+
+        viewModel.getMutableLiveGameData().observe(this, liveGame1Instance -> {
+            arenaGame1 = liveGame1Instance;
+            status_textview.setText(arenaGame1.getArenaMap().getCar().getStatus());
+            bluetoothstat_tv.setText(arenaGame1.getBluetoothStatus());
+            robot_dir_TV.setText("Dir: "+arenaGame1.getArenaMap().getCar().getDirection().toString());
+            robot_X_TV.setText("X: "+arenaGame1.getArenaMap().getCar().getX()+"");
+            robot_Y_TV.setText("Y: "+arenaGame1.getArenaMap().getCar().getY()+"");
+            target_rev_tv.setText(arenaGame1.getReveal_target());
+            target_id_tv.setText(arenaGame1.getTarget());
+            //update main UI stuffs
+        });
+
+
+        // for grid set up
+        gridRecyclerView = findViewById(R.id.maze_rv);
+        gridRecyclerView.setLayoutManager(new GridLayoutManager(this, 20));
+        gridRecyclerView.setNestedScrollingEnabled(false);
+        game = new ArenaGame(20, this);
+        adapter = new ArenaGridAdapter(viewModel.getMutableLiveGameData(), this, getSupportFragmentManager());
+        gridRecyclerView.setAdapter(adapter);
+        //69 6d 67 7c 31 7c 31 38
+        //for button setup
+        leftButton = findViewById(R.id.imageButton_left);
+        rightButton = findViewById(R.id.imageButton_right);
+        upButton = findViewById(R.id.imageButton_up);
+        downButton = findViewById(R.id.imageButton_down);
+        bluetoothButton = findViewById(R.id.imageButton_BT);
+        imageButton_home = findViewById(R.id.imageButton_home);
+        resetButton = findViewById(R.id.reset_btn);
+        sendButton = findViewById(R.id.send_info_btn);
+
+        if(!(getSupportFragmentManager().findFragmentById(R.id.frag_container) instanceof BluetoothFragment)){
+            current = new BluetoothFragment();
+            getSupportFragmentManager().beginTransaction().replace(R.id.frag_container, current).commit();
+        }
+        bluetoothButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if(!(getSupportFragmentManager().findFragmentById(R.id.frag_container) instanceof BluetoothFragment)){
+                    current = new BluetoothFragment();
+                    getSupportFragmentManager().beginTransaction().replace(R.id.frag_container, current).commit();
+                }
+            }
+        });
+        //TODO: Change here for writing movement commands msg
+        imageButton_home.setOnClickListener(new View.OnClickListener() {
+            @SuppressLint("ResourceType")
+            @Override
+            public void onClick(View view) {
+                //getSupportFragmentManager().beginTransaction().remove(current).commit();
+                if(!started){
+                    imageButton_home.setImageDrawable(getDrawable(17301608));
+                    arenaGame1.getComsUtils().write("s".getBytes());
+                    started= true;
+                    Toast.makeText(MainActivity.this,"Game Started",Toast.LENGTH_SHORT).show();
+                }
+                else{
+                    imageButton_home.setImageDrawable(getDrawable(17301611));
+                    arenaGame1.getComsUtils().write("Stop".getBytes());
+                    started= false;
+                    Toast.makeText(MainActivity.this,"Game Stopped",Toast.LENGTH_SHORT).show();
+                }
+
+            }
+        });
+
+        // Robot Car Movement
+        upButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                try{
+                    arenaGame1.getComsUtils().write("f040".getBytes());
+                    if(!Objects.equals(arenaGame1.getBluetoothStatus(), "Connected")){
+                        arenaGame1.getArenaMap().carMoveUp();
+                        viewModel.getMutableLiveGameData().setValue(arenaGame1);
+                    }
+                }catch (Exception e){
+                    Toast.makeText(MainActivity.this,e.getLocalizedMessage(),Toast.LENGTH_SHORT).show();
+                }
+
+            }
+        });
+        downButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                //arenaGame1.writeToChatUtil("Test down button");
+                try{
+                    arenaGame1.getComsUtils().write("b040".getBytes());
+                    if(!Objects.equals(arenaGame1.getBluetoothStatus(), "Connected")) {
+                        arenaGame1.getArenaMap().carMoveDown();
+                        viewModel.getMutableLiveGameData().setValue(arenaGame1);
+                    }
+                }catch (Exception e){
+                    Toast.makeText(MainActivity.this,e.getLocalizedMessage(),Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        leftButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                try{
+                    arenaGame1.getComsUtils().write("t090".getBytes());
+                    //arenaGame1.getArenaMap().carMoveLeft();
+                    if(!Objects.equals(arenaGame1.getBluetoothStatus(), "Connected")) {
+                        arenaGame1.getArenaMap().carMoveUp();
+                        arenaGame1.getArenaMap().carMoveUp();
+                        arenaGame1.getArenaMap().carMoveLeft();
+                        arenaGame1.getArenaMap().carMoveUp();
+                        arenaGame1.getArenaMap().carMoveUp();
+                        arenaGame1.getArenaMap().carMoveUp();
+                        arenaGame1.getArenaMap().carMoveUp();
+                        viewModel.getMutableLiveGameData().setValue(arenaGame1);
+                    }
+                }catch (Exception e){
+                    Toast.makeText(MainActivity.this,e.getLocalizedMessage(),Toast.LENGTH_SHORT).show();
+                }
+
+            }
+        });
+        rightButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                try{
+                    arenaGame1.getComsUtils().write("u090".getBytes());
+                    if(!Objects.equals(arenaGame1.getBluetoothStatus(), "Connected")) {
+                        //arenaGame1.getArenaMap().carMoveRight();
+                        arenaGame1.getArenaMap().carMoveUp();
+                        arenaGame1.getArenaMap().carMoveUp();
+                        arenaGame1.getArenaMap().carMoveRight();
+                        arenaGame1.getArenaMap().carMoveUp();
+                        arenaGame1.getArenaMap().carMoveUp();
+                        arenaGame1.getArenaMap().carMoveUp();
+                        arenaGame1.getArenaMap().carMoveUp();
+                        viewModel.getMutableLiveGameData().setValue(arenaGame1);
+                    }
+                }catch (Exception e){
+                    Toast.makeText(MainActivity.this,e.getLocalizedMessage(),Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        imageButton_rightback.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                try{
+                    arenaGame1.getComsUtils().write("j090".getBytes());
+                    //arenaGame1.getArenaMap().carMoveRight();
+                    if(!Objects.equals(arenaGame1.getBluetoothStatus(), "Connected")) {
+                        arenaGame1.getArenaMap().carMoveDown();
+                        arenaGame1.getArenaMap().carMoveDown();
+                        arenaGame1.getArenaMap().carMoveDown();
+                        arenaGame1.getArenaMap().carMoveDown();
+                        arenaGame1.getArenaMap().carMoveLeft();
+                        arenaGame1.getArenaMap().carMoveDown();
+                        arenaGame1.getArenaMap().carMoveDown();
+                        viewModel.getMutableLiveGameData().setValue(arenaGame1);
+                    }
+
+
+                }catch (Exception e){
+                    Toast.makeText(MainActivity.this,e.getLocalizedMessage(),Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        imageButton_leftback.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                try{
+                    arenaGame1.getComsUtils().write("g090".getBytes());
+                    if(!Objects.equals(arenaGame1.getBluetoothStatus(), "Connected")){
+                        arenaGame1.getArenaMap().carMoveDown();
+                        arenaGame1.getArenaMap().carMoveDown();
+                        arenaGame1.getArenaMap().carMoveDown();
+                        arenaGame1.getArenaMap().carMoveDown();
+                        arenaGame1.getArenaMap().carMoveRight();
+                        arenaGame1.getArenaMap().carMoveDown();
+                        arenaGame1.getArenaMap().carMoveDown();
+                        viewModel.getMutableLiveGameData().setValue(arenaGame1);
+                    }
+
+                }catch (Exception e){
+                    Toast.makeText(MainActivity.this,e.getLocalizedMessage(),Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        sendButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Cell cell;
+                int validator = 0;
+                HashMap<Integer, Coordinates> obstacleMap = arenaGame1.getArenaMap().getObstacleMap();
+                StringBuilder allobs = new StringBuilder("[");
+                for (Map.Entry<Integer, Coordinates> obstacle : obstacleMap.entrySet()) {
+                    validator+=1;
+                    Coordinates coords = obstacle.getValue();
+                    int x = coords.getX();
+                    int y = coords.getY();
+                    cell = arenaGame1.getArenaMap().cellLocation(x, y);
+                    String dir = "";
+                    if(cell.getDirection()==Directions.UP) dir = "90";
+                    else if(cell.getDirection()==Directions.DOWN) dir = "-90";
+                    else if(cell.getDirection()==Directions.LEFT) dir = "180";
+                    else if(cell.getDirection()==Directions.RIGHT) dir = "0";
+                    try{
+                        String msg = "["+cell.getX()+","+(19-cell.getY())+","+dir+","+cell.getObstacleId()+"],";
+                        //Log.d("OBSTACLE",msg);
+                        //arenaGame1.getComsUtils().write(msg.getBytes());
+                        allobs.append(msg);
+                        //Toast.makeText(getApplicationContext(),msg,Toast.LENGTH_SHORT).show();
+                    }catch (Exception e){
+                        Toast.makeText(getApplicationContext(),e.getLocalizedMessage(),Toast.LENGTH_SHORT).show();
+                    }
+                }
+                allobs.deleteCharAt(allobs.length()-1);
+                allobs.append("]");
+                if(validator!=0){
+                    arenaGame1.getComsUtils().write(allobs.toString().getBytes());
+                    arenaGame1.getArenaMap().getCar().setStatus("Started Search");
+                    Toast.makeText(getApplicationContext(),allobs,Toast.LENGTH_SHORT).show();
+                }
+                else{
+                    Toast.makeText(MainActivity.this,"Please Enter Obstacle",Toast.LENGTH_SHORT).show();
+                }
+
+
+            }
+        });
+
+        ConstraintLayout constLayout = findViewById(R.id.main_layout);
+
+        constLayout.setOnDragListener(new View.OnDragListener() {
+            @Override
+            public boolean onDrag(View view, DragEvent dragEvent) {
+                switch (dragEvent.getAction()) {
+                    case DragEvent.ACTION_DRAG_STARTED:
+                        //Log.d("OBSTACLE","DRAGGING EVENT STARTED");
+                        return true;
+                    case DragEvent.ACTION_DRAG_ENTERED:
+                        //Log.d("OBSTACLE","DRAGGING EVENT ENTERED");
+                        return true;
+                    case DragEvent.ACTION_DRAG_LOCATION:
+                        return true;
+                    case DragEvent.ACTION_DRAG_EXITED:
+                        return true;
+                    case DragEvent.ACTION_DROP:
+                        Log.d("OBSTACLE", "DROP EVENT HAPPENING OUTSIDE OF GRID");
+                        Log.d("OBSTACLE","FROM "+dragEvent.getClipData().getItemAt(0).getText());
+                        ClipData.Item data = dragEvent.getClipData().getItemAt(0);
+                        String[] args = data.getText().toString().split(",");
+                        int x = Integer.parseInt(args[0]);
+                        int y = Integer.parseInt(args[1]);
+                        arenaGame1.getArenaMap().deleteObstacle(x, y);
+                        viewModel.getMutableLiveGameData().setValue(arenaGame1);
+                        return true;
+                    case DragEvent.ACTION_DRAG_ENDED:
+                        return true;
+                }
+                return true;
+            }
+        });
+
+        gridRecyclerView.setOnDragListener(new View.OnDragListener() {
+            @Override
+            public boolean onDrag(View view, DragEvent dragEvent) {
+                switch (dragEvent.getAction()){
+                    case DragEvent.ACTION_DROP:
+                        return false;
+                }
+                return true;
+            }
+        });
+
+        resetButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                ArenaMap arenaMap = arenaGame1.getArenaMap();
+                for (Map.Entry<Integer, Coordinates> obstacle : arenaMap.getObstacleMap().entrySet()) {
+                    Coordinates coords = obstacle.getValue();
+                    arenaMap.deleteObstacle(coords.getX(), coords.getY());
+                }
+                Cell.setObstacleNo(0);
+                arenaMap.getObstacleMap().clear();
+                List<Cell> Cells = arenaMap.getCells();
+                for(int i = 0; i < Cells.size();i++){
+                    Cell cell = Cells.get(i);
+                    if(cell.isRobot() || cell.isPathDiscovered()||cell.isObstacle()||cell.isFound()){
+                        cell.resetCell();
+                        cell.setName(" ");
+                    }
+                }
+                arenaMap.setCar(1,1,Directions.UP);
+                viewModel.getMutableLiveGameData().setValue(arenaGame1);
+            }
+        });
+
+        obsListButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+//                Log.e("CheckDirection",cell.getDirection().toString());
+                ArenaMap arenaMap = arenaGame1.getArenaMap();
+                ArrayList<Cell> cells = new ArrayList<Cell>();
+                for (Map.Entry<Integer, Coordinates> obstacle : arenaMap.getObstacleMap().entrySet()) {
+                    int x = obstacle.getValue().getX();
+                    int y = obstacle.getValue().getY();
+                    if(arenaMap.cellLocation(x, y).getObstacleId() != 0){
+                        cells.add(arenaMap.cellLocation(x, y));
+                    }
+                }
+                ObstacleListDialogFragment obsListDialogFragment = ObstacleListDialogFragment.newInstance(cells);
+                obsListDialogFragment.show(getSupportFragmentManager(), "fragment_obstacle_list_dialog");
+            }
+        });
+    }
+
+    @Override
+    public void onCellClick(Cell cell) {
+
+    }
+
+}

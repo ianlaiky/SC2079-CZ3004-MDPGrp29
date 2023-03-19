@@ -1,0 +1,72 @@
+﻿package com.mdp.team29;
+
+import android.content.Context;
+import android.graphics.drawable.Drawable;
+
+import androidx.core.content.res.ResourcesCompat;
+
+import java.util.HashMap;
+
+public class ImageUtils {
+    Context context;
+    public static final HashMap<Integer,String> idURIMap = new HashMap<Integer,String>()
+    {
+        {
+            put(0, "empty");
+            put(1, "car_pos_9");
+            put(2, "car_pos_8");
+            put(3, "car_pos_7");
+            put(4, "car_pos_6");
+            put(5, "car_pos_5");
+            put(6, "car_pos_4");
+            put(7, "car_pos_3");
+            put(8, "car_pos_2");
+            put(9, "car_pos_1");
+            put(10, "hidden_obstacle");
+            put(11, "one");
+            put(12, "two");
+            put(13, "three");
+            put(14, "four");
+            put(15, "five");
+            put(16, "six");
+            put(17, "seven");
+            put(18, "eight");
+            put(19, "nine");
+            put(20, "alphabet_a");
+            put(21, "alphabet_b");
+            put(22, "alphabet_c");
+            put(23, "alphabet_d");
+            put(24, "alphabet_e");
+            put(25, "alphabet_f");
+            put(26, "alphabet_g");
+            put(27, "alphabet_h");
+            put(28, "alphabet_s");
+            put(29, "alphabet_t");
+            put(30, "alphabet_u");
+            put(31, "alphabet_v");
+            put(32, "alphabet_w");
+            put(33, "alphabet_x");
+            put(34, "alphabet_y");
+            put(35, "alphabet_z");
+            put(36, "up_arrow");
+            put(37, "down_arrow");
+            put(38, "right_arrow");
+            put(39, "left_arrow");
+            put(40, "stop");
+            put(41, "bullseye");
+            put(42, "explored");
+            put(43, "up");
+            put(44, "down");
+            put(45, "left");
+            put(46, "right");
+        }
+    };
+
+    public ImageUtils(Context context) {
+        this.context = context;
+    }
+    public int getImageResource (int id){
+        String uri = "@drawable/"+idURIMap.get(id);
+        return context.getResources().getIdentifier(uri,null,context.getPackageName());
+    }
+}

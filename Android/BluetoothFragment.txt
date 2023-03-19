@@ -1,0 +1,427 @@
+﻿package com.mdp.team29.fragments;
+
+import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ListView;
+import android.widget.Switch;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
+
+import com.mdp.team29.Directions;
+import com.mdp.team29.R;
+import com.mdp.team29.models.ArenaGame;
+import com.mdp.team29.CommsUtils;
+import com.mdp.team29.LiveViewModels;
+import com.mdp.team29.models.Cell;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
+public class BluetoothFragment extends Fragment {
+    Button discover_button, showdevice_button, scandevice_button,test_button;
+    private BluetoothAdapter bluetoothAdapter;
+    Switch bt_switch, discover_switch;
+    private Set<BluetoothDevice> pairedDevices;
+    private List<BluetoothDevice> scanNewDevices = new ArrayList<BluetoothDevice>();
+    ListView listViewConnected, listViewScannedNew,read_listview,write_listview;
+    ArrayList list_connect_device;
+    ArrayList<BluetoothDevice> list_connected_BtDevicel;
+    ArrayList list_scanned_device = new ArrayList();
+    ArrayList recieve_msg_list = new ArrayList();
+    ArrayList sent_msg_list = new ArrayList();
+    EditText send_msg_et;
+    boolean retryAttempt  = false;
+    private LiveViewModels viewModels;
+    ImageButton send_button;
+    public static final String TOAST = "toast";
+    public static final String DEVICE_NAME = "MDPTablet";
+
+    ArenaGame arenaGame;
+
+    public static final int MESSAGE_STATE_CHANGED = 0;
+    public static final int MESSAGE_READ = 1;
+    public static final int MESSAGE_WRITE = 2;
+    public static final int MESSAGE_DEVICE_NAME = 3;
+    public static final int MESSAGE_TOAST = 4;
+    ArrayAdapter adaptersend;
+    private ArrayAdapter adapter1,adapter2;
+    private BluetoothDevice lastConnectedDev;
+    boolean hasconnected = false;
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.fragment_bluetooth, container, false);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        adapter1 = new ArrayAdapter(getActivity(), android.R.layout.simple_list_item_1, list_scanned_device);
+        adapter2 = new ArrayAdapter(getActivity(), android.R.layout.simple_list_item_1, recieve_msg_list);
+
+        viewModels = new ViewModelProvider(requireActivity()).get(LiveViewModels.class);
+        arenaGame = viewModels.getMutableLiveGameData().getValue(); // get value at this instance
+        if(!arenaGame.ComsCheck()){
+            arenaGame.initComms(handler);
+            viewModels.getMutableLiveGameData().setValue(arenaGame);
+        }
+
+        // Listen and update
+        viewModels.getMutableLiveGameData().observe(getViewLifecycleOwner(), liveGame1Instance -> {
+            arenaGame = liveGame1Instance;
+        });
+
+        send_button = view.findViewById(R.id.send_button);
+        send_msg_et= view.findViewById(R.id.send_msg_et);
+        discover_button = view.findViewById(R.id.discover_button);
+        bt_switch = view.findViewById(R.id.bt_switch);
+
+        if (bluetoothAdapter.isEnabled()) {
+            bt_switch.setChecked(true);
+        }
+        else{
+            bt_switch.setChecked(false);
+        }
+
+
+        listViewConnected = view.findViewById(R.id.listView);
+        listViewScannedNew = view.findViewById(R.id.listView2);
+        write_listview = view.findViewById(R.id.write_listview);
+        read_listview = view.findViewById(R.id.read_listview);
+
+
+        showdevice_button = view.findViewById(R.id.showdevice_button);
+        scandevice_button = view.findViewById(R.id.scandevice_button);
+
+
+        IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        getActivity().registerReceiver(mReceiverScan, filter);
+        IntentFilter filter1 = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        getActivity().registerReceiver(mReceiverScan, filter1);
+        IntentFilter filter2 = new IntentFilter(BluetoothDevice.ACTION_ACL_DISCONNECTED);
+        getActivity().registerReceiver(mReceiverScan, filter2);
+
+
+        adaptersend = new ArrayAdapter(getActivity(), android.R.layout.simple_list_item_1, sent_msg_list);
+        write_listview.setAdapter(adaptersend);
+        read_listview.setAdapter(adapter2);
+        send_button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                String msgtosend = send_msg_et.getText().toString();
+                sent_msg_list.add(msgtosend);
+                adaptersend.notifyDataSetChanged();
+                arenaGame.getComsUtils().write(msgtosend.getBytes());
+                write_listview.setSelection(adaptersend.getCount()-1);
+                if(msgtosend.length()>0){
+                }
+            }
+        });
+
+        listViewScannedNew.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+
+                if (ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(getActivity(),
+                            new String[] { Manifest.permission.BLUETOOTH_SCAN }, 104);
+                    return;
+                }
+                if (bluetoothAdapter.isEnabled()) {
+                    bluetoothAdapter.cancelDiscovery();
+                    Log.e("TEST","CONNECTING");
+                    arenaGame.getComsUtils().connect(bluetoothAdapter.getRemoteDevice(scanNewDevices.get(i).getAddress()));
+                }
+            }
+        });
+        listViewConnected.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                Toast.makeText(getActivity(), "You Selected " + list_connect_device.get(i), Toast.LENGTH_SHORT).show();
+                if (ActivityCompat.checkSelfPermission(getActivity(),
+                        Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(getActivity(),
+                            new String[] { Manifest.permission.BLUETOOTH_SCAN }, 102);
+                    return;
+                }
+                if (bluetoothAdapter.isEnabled()) {
+                    bluetoothAdapter.cancelDiscovery();
+                    String info = ((TextView) view).getText().toString();
+                    String address = info.substring(info.length() - 17);
+                    Log.d("Address", address);
+                    hasconnected=true;
+                    arenaGame.getComsUtils().connect(bluetoothAdapter.getRemoteDevice(address));
+                    lastConnectedDev = list_connected_BtDevicel.get(i);
+                } else {
+                    Toast.makeText(getActivity(), "Please turn BT on", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        scandevice_button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Log.e("Test","Start Scanning");
+                list_scanned_device.clear();
+                listViewScannedNew.setAdapter(adapter1);
+
+                if (ContextCompat.checkSelfPermission(getActivity(),
+                        Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(getActivity(),
+                            new String[] { Manifest.permission.ACCESS_FINE_LOCATION }, 101);
+                    Log.e("TEST", "Scan ask Permission");
+                    return;
+                }
+                if (ActivityCompat.checkSelfPermission(getActivity(),
+                        Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                    Log.e("scan devices", "0");
+                    ActivityCompat.requestPermissions(getActivity(),
+                            new String[] { Manifest.permission.BLUETOOTH_SCAN }, 102);
+                    return;
+                }
+                if (bluetoothAdapter.isDiscovering()) { // cancel current search
+                    Toast.makeText(getActivity(),"CANCELLED DISCOVERY",Toast.LENGTH_SHORT).show();
+                    bluetoothAdapter.cancelDiscovery();
+                }
+                Toast.makeText(getActivity(), "Scanning Now", Toast.LENGTH_SHORT).show();
+                bluetoothAdapter.startDiscovery();
+            }
+        });
+
+        // to show previously connected devices
+        showdevice_button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (bluetoothAdapter.isEnabled()) {
+                    if (ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                        if (Build.VERSION.SDK_INT >= 31) {
+                            ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 100);
+                            Toast.makeText(getActivity(), "Not Enough Permissions", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                    }
+                    pairedDevices = bluetoothAdapter.getBondedDevices();
+
+                    list_connect_device = new ArrayList();
+                    list_connected_BtDevicel = new ArrayList<>();
+                    for (BluetoothDevice bt : pairedDevices) {
+                        list_connect_device.add(bt.getName()+"\n"+bt.getAddress());
+                        list_connected_BtDevicel.add(bt);
+                    }
+                    Toast.makeText(getActivity(), "Showing Paired Devices", Toast.LENGTH_SHORT).show();
+
+                    final ArrayAdapter adapter = new ArrayAdapter(getActivity(), android.R.layout.simple_list_item_1, list_connect_device);
+
+                    listViewConnected.setAdapter(adapter);
+                }
+
+            }
+        });
+        // switch to turn on and off bluetooth
+        bt_switch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+                if (!bt_switch.isChecked()) { // to have it off
+                    if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_DENIED) {
+                        if (Build.VERSION.SDK_INT >= 31) {
+                            ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 100);
+                            return;
+                        }
+                    }
+                    BluetoothManager bluetoothManager = (BluetoothManager) getActivity().getSystemService(Context.BLUETOOTH_SERVICE);
+                    bluetoothAdapter = bluetoothManager.getAdapter();
+                    if (!bluetoothAdapter.isEnabled()) {
+                        Toast.makeText(getActivity(), "Bluetooth Already Off!", Toast.LENGTH_SHORT).show();
+                    } else {
+                        bluetoothAdapter.disable();
+                    }
+                } else {
+                    if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_DENIED) {
+                        if (Build.VERSION.SDK_INT >= 31) {
+                            ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 100);
+                            return;
+                        }
+                    }
+                    BluetoothManager bluetoothManager = (BluetoothManager) getActivity().getSystemService(Context.BLUETOOTH_SERVICE);
+                    bluetoothAdapter = bluetoothManager.getAdapter();
+
+                    if (bluetoothAdapter.isEnabled()) {
+                        Toast.makeText(getActivity(), "Bluetooth Already On!", Toast.LENGTH_SHORT).show();
+                    } else {
+                        bluetoothAdapter.enable();
+                    }
+                }
+            }
+        });
+        discover_button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (ContextCompat.checkSelfPermission(getActivity(),
+                        Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_DENIED) {
+                    ActivityCompat.requestPermissions(getActivity(),
+                            new String[]{Manifest.permission.BLUETOOTH_SCAN}, 102);
+                    Log.e("TESTD", "checking permission  \n" + (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.BLUETOOTH_SCAN)));
+                    return;
+                }
+                if (bluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
+                    Log.e("TEST", "checking permission set to discoverable");
+                    Intent discoveryIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+                    discoveryIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
+                    startActivity(discoveryIntent);
+
+                } else {
+                    Toast.makeText(getActivity(), "Device already discoverable", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+    }
+    // Listens for devices
+    private final BroadcastReceiver mReceiverScan = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            Log.e("TEST","Broadcast RCV");
+
+            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                if (ActivityCompat.checkSelfPermission(getActivity(),
+                        Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(getActivity(),
+                            new String[] { Manifest.permission.BLUETOOTH_CONNECT }, 103);
+                    return;
+                }
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if (device.getBondState() != BluetoothDevice.BOND_BONDED && !list_scanned_device.contains(device.getAddress())) {
+                    scanNewDevices.add(device);
+                    if (device.getName() != null && lastConnectedDev==null) {
+                        list_scanned_device.add(device.getName() + "\n" + device.getAddress());
+                        adapter1.notifyDataSetChanged();
+                        Log.d("TEST", "discover" + device.getName());
+                    }
+//                    else{
+//                        Toast.makeText(context, "Disconnected Attempting to Reconnect to "+lastConnectedDev.getName(), Toast.LENGTH_SHORT).show();
+//                        arenaGame.getComsUtils().connect(lastConnectedDev);
+//                        viewModels.getMutableLiveGameData().setValue(arenaGame);
+//                    }
+                }
+            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+                if (listViewScannedNew.getCount() == 0) {
+                    Toast.makeText(context, "No new devices found", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(context, "Click on device to start pairing", Toast.LENGTH_SHORT).show();
+                }
+                Log.e("TEST", "DONE SCANNING");
+            }
+            else if(BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)){
+                if(lastConnectedDev!=null){
+                    Toast.makeText(context, "Disconnected Attempting to Reconnect to "+lastConnectedDev.getName(), Toast.LENGTH_SHORT).show();
+                    arenaGame.setBluetoothStatus("Reconnecting");
+                    retryAttempt = true;
+                    viewModels.getMutableLiveGameData().setValue(arenaGame);
+                    while(!bluetoothAdapter.isEnabled());
+                    arenaGame.getComsUtils().connect(lastConnectedDev);
+                    viewModels.getMutableLiveGameData().setValue(arenaGame);
+                    retryAttempt = false;
+                }
+            }
+        }
+    };
+
+
+    private Handler handler = new Handler(new Handler.Callback() {
+        @Override
+        public boolean handleMessage(Message message) {
+            switch (message.what) {
+                case MESSAGE_STATE_CHANGED:
+                    switch (message.arg1) {
+                        case CommsUtils.STATE_NONE:
+                            if(!retryAttempt) arenaGame.setBluetoothStatus("Not Connected");
+                            break;
+                        case CommsUtils.STATE_LISTEN:
+                            //setState("Not Connected");
+                            if(!retryAttempt) arenaGame.setBluetoothStatus("Listening");
+                            break;
+                        case CommsUtils.STATE_CONNECTING:
+                            if(!retryAttempt) arenaGame.setBluetoothStatus("Connecting");
+                            //("Connecting...");
+                            break;
+                        case CommsUtils.STATE_CONNECTED:
+                            if(!retryAttempt) arenaGame.setBluetoothStatus("Connected");
+                            break;
+
+                    }
+                    viewModels.getMutableLiveGameData().setValue(arenaGame);
+
+                    break;
+                case MESSAGE_WRITE:
+                    byte[] buffer1 = (byte[]) message.obj;
+                    String outputBuffer = new String(buffer1);
+                    //adapterMainChat.add("Me: " + outputBuffer);
+                    break;
+                case MESSAGE_READ: // handle messaage from robot here
+                    byte[] buffer = (byte[]) message.obj;
+                    String inputBuffer = new String(buffer, 0, message.arg1);
+                    //Toast.makeText(getActivity(),inputBuffer,Toast.LENGTH_SHORT).show();
+                    //Toast.makeText(getActivity(), inputBuffer, Toast.LENGTH_SHORT).show();
+                    recieve_msg_list.add(inputBuffer);
+                    adapter2.notifyDataSetChanged();
+                    read_listview.setSelection(adapter2.getCount()-1);
+                    arenaGame.handleCommunications(inputBuffer);
+                    //TODO Test this pls
+                    viewModels.getMutableLiveGameData().setValue(arenaGame);
+                    //adapterMainChat.add(connectedDevice + ": " + inputBuffer);
+                    break;
+                case MESSAGE_DEVICE_NAME:
+                    //connectedDevice = message.getData().getString(DEVICE_NAME);
+                    //Toast.makeText(context, connectedDevice, Toast.LENGTH_SHORT).show();
+                    break;
+                case MESSAGE_TOAST:
+                    //Toast.makeText(context, message.getData().getString(TOAST), Toast.LENGTH_SHORT).show();
+                    break;
+            }
+            return false;
+        }
+    });
+    ActivityResultLauncher<String> requestPermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(),
+            new ActivityResultCallback<Boolean>() {
+                @Override
+                public void onActivityResult(Boolean result) {
+                    if (result) {
+                        Log.d("activity status", "Permission given");
+                    }
+                }
+            });
+}

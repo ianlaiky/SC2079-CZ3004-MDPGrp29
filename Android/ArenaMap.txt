@@ -1,0 +1,476 @@
+﻿package com.mdp.team29.models;
+
+import android.util.Log;
+
+import com.mdp.team29.Directions;
+import com.mdp.team29.models.Cell;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+public class ArenaMap {
+    private List<Cell> cells;
+    private int size;
+    private Car car;
+    private HashMap<Integer, Coordinates> obstacleMap; //not updated
+    private HashMap<Integer, Coordinates> foundObstacles; //not updated
+
+    public HashMap<Integer, Coordinates> getObstacleMap() {
+        return obstacleMap;
+    }
+
+    public void setObstacleMap(HashMap<Integer, Coordinates> obstacleMap) {
+        this.obstacleMap = obstacleMap;
+    }
+
+    public HashMap<Integer, Coordinates> getFoundObstacles() {
+        return foundObstacles;
+    }
+
+    public void setFoundObstacles(HashMap<Integer, Coordinates> foundObstacles) {
+        this.foundObstacles = foundObstacles;
+    }
+
+    public ArenaMap(int size) {
+        cells = new ArrayList<>();
+        obstacleMap = new HashMap<>();
+        this.size = size;
+        for(int i = 0; i < size * size;i++){
+            int r = i % size;
+            int q = i /size;
+            cells.add(new Cell(r,q));
+        }
+        spawnCar(1,1,Directions.UP);
+    }
+
+    /** Getter & Setter **/
+    public Car getCar() {
+        return car;
+    }
+
+    public void setCar(Car car) {
+        this.car = car;
+    }
+
+    public List<Cell> getCells() {
+        return cells;
+    }
+
+    public Cell cellLocation(int x,int y){
+        int div = 19-y;
+        //int div = y;
+        int pos = div*20+x;
+        return cells.get(pos);
+    }
+
+
+    /** Obstacle **/
+    public void createObstacle(int x, int y){
+        Cell cell = cellLocation(x, y);
+        Cell.incObstacleNo();
+        Log.d("OBSTACLE", "creating obstacleNo"+Cell.getObstacleNo()+" at x: "+x+" y: "+y);
+        cell.setObstacle(true);
+        cell.setObstacleId(cell.getObstacleNo());
+        obstacleMap.put(cell.getObstacleNo(), new Coordinates(x, y));
+    }
+
+    public void deleteObstacle(int x, int y){
+        Cell cell = cellLocation(x, y);
+        Log.d("OBSTACLE", "deleting obstacleNo"+cellLocation(x, y).getObstacleId()+" at x: "+x+" y: "+y);
+        cell.resetCell();
+        obstacleMap.remove(cellLocation(x, y).getObstacleId());
+    }
+
+    public void moveObstacle(int startX, int startY, int endX, int endY){
+        Cell source = cellLocation(startX, startY);
+        Cell target = cellLocation(endX, endY);
+        target.copyCell(source);
+        source.resetCell();
+        obstacleMap.put(target.getObstacleId(),new Coordinates(endX, endY));
+    }
+
+    public String rotateObstacleClockwise(int x, int y){
+        Cell cell = cellLocation(x, y);
+        Directions d = cell.getDirection();
+        switch(d){
+            case UP:
+                cell.setDirection(Directions.RIGHT);
+                Log.d("OBSTACLE", "Cell rotated from " + d.name() + " to " + cell.getDirection().name());
+                break;
+            case DOWN:
+                cell.setDirection(Directions.LEFT);
+                Log.d("OBSTACLE", "Cell rotated from " + d.name() + " to " + cell.getDirection().name());
+                break;
+            case LEFT:
+                cell.setDirection(Directions.UP);
+                Log.d("OBSTACLE", "Cell rotated from " + d.name() + " to " + cell.getDirection().name());
+                break;
+            case RIGHT:
+                cell.setDirection(Directions.DOWN);
+                Log.d("OBSTACLE", "Cell rotated from " + d.name() + " to " + cell.getDirection().name());
+                break;
+        }
+        return cell.getDirection().name();
+    }
+
+    public void spawnCar(int x,int y,Directions directions){
+        //car = new Car(1,18, directions);
+        car = new Car(1,1, directions);
+        int bottom = y-1;
+        int top = y+1;
+        int left = x -1;
+        int right = x+1;
+
+
+        cellLocation(left,top).setCar(Cell.Types.R_TOP_LEFT,directions);
+        cellLocation(x,top).setCar(Cell.Types.R_TOP_CENTER,directions);
+        cellLocation(right,top).setCar(Cell.Types.R_TOP_RIGHT,directions);
+
+        cellLocation(left,y).setCar(Cell.Types.R_MID_LEFT,directions);
+        cellLocation(x,y).setCar(Cell.Types.R_MID_CENTER,directions);
+        cellLocation(right,y).setCar(Cell.Types.R_MID_RIGHT,directions);
+
+        cellLocation(left,bottom).setCar(Cell.Types.R_BTM_LEFT,directions);
+        cellLocation(x,bottom).setCar(Cell.Types.R_BTM_CENTER,directions);
+        cellLocation(right,bottom).setCar(Cell.Types.R_BTM_RIGHT,directions);
+
+    }
+    public void setCar(int x,int y , Directions directions){
+        car.setY(y);
+        car.setX(x);
+        car.setDirection(directions);
+        int bottom;
+        int top;
+        int left;
+        int right;
+        switch (directions){
+            case UP:
+                bottom = y-1;
+                top = y+1;
+                left = x -1;
+                right = x+1;
+                cellLocation(left,top).setCar(Cell.Types.R_TOP_LEFT,directions);
+                cellLocation(x,top).setCar(Cell.Types.R_TOP_CENTER,directions);
+                cellLocation(right,top).setCar(Cell.Types.R_TOP_RIGHT,directions);
+
+                cellLocation(left,y).setCar(Cell.Types.R_MID_LEFT,directions);
+                cellLocation(x,y).setCar(Cell.Types.R_MID_CENTER,directions);
+                cellLocation(right,y).setCar(Cell.Types.R_MID_RIGHT,directions);
+
+                cellLocation(left,bottom).setCar(Cell.Types.R_BTM_LEFT,directions);
+                cellLocation(x,bottom).setCar(Cell.Types.R_BTM_CENTER,directions);
+                cellLocation(right,bottom).setCar(Cell.Types.R_BTM_RIGHT,directions);
+                break;
+            case DOWN:
+                bottom = y+1;
+                top = y-1;
+                left = x-1;
+                right = x+1;
+                cellLocation(right,top).setCar(Cell.Types.R_TOP_LEFT, directions);
+                cellLocation(x,top).setCar(Cell.Types.R_TOP_CENTER, directions);
+                cellLocation(left,top).setCar(Cell.Types.R_TOP_RIGHT, directions);
+                cellLocation(right,y).setCar(Cell.Types.R_MID_LEFT, directions);
+                cellLocation(x,y).setCar(Cell.Types.R_MID_CENTER, directions);
+                cellLocation(left,y).setCar(Cell.Types.R_MID_RIGHT, directions);
+                cellLocation(right,bottom).setCar(Cell.Types.R_BTM_LEFT, directions);
+                cellLocation(x,bottom).setCar(Cell.Types.R_BTM_CENTER, directions);
+                cellLocation(left,bottom).setCar(Cell.Types.R_BTM_RIGHT, directions);
+                break;
+
+            case LEFT:
+                bottom = x+1;
+                top = x-1;
+                left = y-1;
+                right = y+1;
+                cellLocation(top,left).setCar(Cell.Types.R_TOP_LEFT, directions);
+                cellLocation(top,y).setCar(Cell.Types.R_TOP_CENTER, directions);
+                cellLocation(top,right).setCar(Cell.Types.R_TOP_RIGHT, directions);
+                cellLocation(x,left).setCar(Cell.Types.R_MID_LEFT, directions);
+                cellLocation(x,y).setCar(Cell.Types.R_MID_CENTER, directions);
+                cellLocation(x,right).setCar(Cell.Types.R_MID_RIGHT, directions);
+                cellLocation(bottom,left).setCar(Cell.Types.R_BTM_LEFT, directions);
+                cellLocation(bottom,y).setCar(Cell.Types.R_BTM_CENTER, directions);
+                cellLocation(bottom,right).setCar(Cell.Types.R_BTM_RIGHT, directions);
+                break;
+
+            case RIGHT:
+                bottom = x-1;
+                top = x+1;
+                left = y+1;
+                right = y-1;
+                cellLocation(top,left).setCar(Cell.Types.R_TOP_LEFT, directions);
+                cellLocation(top,y).setCar(Cell.Types.R_TOP_CENTER, directions);
+                cellLocation(top,right).setCar(Cell.Types.R_TOP_RIGHT, directions);
+                cellLocation(x,left).setCar(Cell.Types.R_MID_LEFT, directions);
+                cellLocation(x,y).setCar(Cell.Types.R_MID_CENTER, directions);
+                cellLocation(x,right).setCar(Cell.Types.R_MID_RIGHT, directions);
+                cellLocation(bottom,left).setCar(Cell.Types.R_BTM_LEFT, directions);
+                cellLocation(bottom,y).setCar(Cell.Types.R_BTM_CENTER, directions);
+                cellLocation(bottom,right).setCar(Cell.Types.R_BTM_RIGHT, directions);
+                break;
+        }
+    }
+    public void setObstacle(int x,int y){
+
+    }
+    public void carMoveUp() {
+        Cell cell1, cell2, cell3;
+        int x = car.getX();
+        int y = car.getY();
+        int c1 = 0, c2 = 0, c3 = 0;
+        int cx = 0;
+        int cy = 0;
+        Directions directions = car.getDirection();
+        try{
+            switch (directions) {
+                case UP:
+                    y = y + 1;
+                    c1 = x + 1;
+                    c2 = x - 1;
+                    c3 = y + 1;
+                    Log.d("carMoveForward", "coords " + y + c3);
+                    cell1 = cellLocation(x, c3);
+                    cell2 = cellLocation(c1, c3);
+                    cell3 = cellLocation(c2, c3);
+                    cx = x;
+                    cy = c3;
+                    break;
+                case DOWN:
+                    y = y-1;
+                    c1 = x+1;
+                    c2 = x-1;
+                    c3 = y-1;
+                    cell1 = cellLocation(x, c3);
+                    cell2 = cellLocation(c1, c3);
+                    cell3 = cellLocation(c2, c3);
+                    cx = x;
+                    cy = c3;
+                    break;
+                case LEFT:
+                    x = x-1;
+                    c1 = y-1;
+                    c2 = y+1;
+                    c3 = x-1;
+                    cell1 = cellLocation(c3, y);
+                    cell2 = cellLocation(c3, c1);
+                    cell3 = cellLocation(c3, c2);
+                    cx = c3;
+                    cy = y;
+                    break;
+                case RIGHT:
+                    x = x+1;
+                    c1 = y-1;
+                    c2 = y+1;
+                    c3 = x+1;
+                    cell1 = cellLocation(c3, y);
+                    cell2 = cellLocation(c3, c1);
+                    cell3 = cellLocation(c3, c2);
+                    cx = c3;
+                    cy = y;
+                    break;
+                default:
+                    cell1 = cellLocation(x,y);
+                    cell2 = cellLocation(x,y);
+                    cell3 = cellLocation(x,y);
+                    break;
+            }
+            if (!(cell1.isEmpty() && cell2.isEmpty() && cell3.isEmpty())) {
+                Log.d("movement", "cell occupied");
+            } else if (!withinGrid(cx, cy)) {
+                Log.d("movement", "out of grid");
+            } else {
+                setCar(x, y, directions);
+                car.setX(x);
+                car.setY(y);
+                car.setDirection(directions);
+                switch (directions) {
+                    case UP:
+                        cellLocation(x,y-2).setPositionMoved();
+                        cellLocation(c1,y-2).setPositionMoved();
+                        cellLocation(c2,y-2).setPositionMoved();
+                        break;
+                    case DOWN:
+                        cellLocation(x, y + 2).setPositionMoved();
+                        cellLocation(c1, y + 2).setPositionMoved();
+                        cellLocation(c2, y + 2).setPositionMoved();
+                        break;
+                    case RIGHT:
+                        cellLocation(x - 2, y).setPositionMoved();
+                        cellLocation(x - 2, c1).setPositionMoved();
+                        cellLocation(x - 2, c2).setPositionMoved();
+                        break;
+                    case LEFT:
+                        cellLocation(x + 2, y).setPositionMoved();
+                        cellLocation(x + 2, c1).setPositionMoved();
+                        cellLocation(x + 2, c2).setPositionMoved();
+                        break;
+                }
+            }
+        }catch (Exception e){
+            Log.e("ArenaMapRobot","Banging Wall");
+        }
+
+    }
+    public void carMoveDown(){
+        Cell cell1, cell2, cell3; // keep track of frontier cells to check for obstruction
+        int x = car.getX();
+        int y = car.getY();
+        int a=0,b=0,c=0;
+        int cx=0; // cx and cy are used to store coords for the centre-frontier cell. Used to check if it is still inGrid()
+        int cy=0;
+        Directions directions = car.getDirection();
+        try{
+            switch (directions){
+                case UP: //move south
+                    y = y-1; // shift middle
+                    a = x+1; // right
+                    b = x-1; // left
+                    c = y-1; // frontier y axis
+                    Log.d("roboReverse","coords "+y+c);
+                    cell1 = cellLocation(x,c);
+                    cell2 = cellLocation(a,c);
+                    cell3 = cellLocation(b,c);
+                    cx = x;
+                    cy = c;
+                    break;
+                case DOWN:
+                    y = y+1;
+                    a = x+1;
+                    b = x-1;
+                    c = y+1;
+                    cell1 = cellLocation(x,c);
+                    cell2 = cellLocation(a,c);
+                    cell3 = cellLocation(b,c);
+                    cx = x;
+                    cy = c;
+                    break;
+                case RIGHT:   // <- movement
+                    x = x-1; // shift middle x axis
+                    a = y+1; // right
+                    b = y-1; // left
+                    c = x-1; // frontier x axis
+                    cell1 = cellLocation(c,y);
+                    cell2 = cellLocation(c,a);
+                    cell3 = cellLocation(c,b);
+                    cx = c;
+                    cy = y;
+                    break;
+                case LEFT:
+                    x = x+1;
+                    a = y+1;
+                    b = y-1;
+                    c = x+1;
+                    cell1 = cellLocation(c,y);
+                    cell2 = cellLocation(c,a);
+                    cell3 = cellLocation(c,b);
+                    cx = c;
+                    cy = y;
+                    break;
+                default:
+                    cell1 = cellLocation(x,y);
+                    cell2 = cellLocation(x,y);
+                    cell3 = cellLocation(x,y);
+                    break;
+            }
+
+
+            if(!(cell1.isEmpty() && cell2.isEmpty() && cell3.isEmpty())){
+                Log.d("movement", "cell occupied");
+            }
+            else if(!withinGrid(cx,cy)){
+                Log.d("movement","out of grid");
+            }
+            else {
+                setCar(x, y, directions);
+                car.setX(x);
+                car.setY(y);
+                car.setDirection(directions);
+                switch (directions) {
+                    case UP:
+                        cellLocation(x, y + 2).setPositionMoved();
+                        cellLocation(a, y + 2).setPositionMoved();
+                        cellLocation(b, y + 2).setPositionMoved();
+                        break;
+                    case DOWN:
+                        cellLocation(x, y - 2).setPositionMoved();
+                        cellLocation(a, y - 2).setPositionMoved();
+                        cellLocation(b, y - 2).setPositionMoved();
+                        break;
+                    case LEFT:
+                        cellLocation(x - 2, y).setPositionMoved();
+                        cellLocation(x - 2, a).setPositionMoved();
+                        cellLocation(x - 2, b).setPositionMoved();
+                        break;
+                    case RIGHT:
+                        cellLocation(x + 2, y).setPositionMoved();
+                        cellLocation(x + 2, a).setPositionMoved();
+                        cellLocation(x + 2, b).setPositionMoved();
+                        break;
+                }
+
+            }
+        }
+        catch (Exception e){
+            Log.e("ArenaMapRobot","Banging Wall");
+        }
+
+    }
+    public void carMoveRight(){
+        int x = car.getX();
+        int y = car.getY();
+        Directions directions = car.getDirection();
+        switch (directions){
+            case UP:
+                directions = Directions.RIGHT;
+                break;
+            case RIGHT:
+                directions = Directions.DOWN;
+                break;
+            case DOWN:
+                directions = Directions.LEFT;
+                break;
+            case LEFT:
+                directions = Directions.UP;
+                break;
+        }
+        setCar(x,y,directions);
+    }
+    public void carMoveLeft(){
+        int x = car.getX();
+        int y = car.getY();
+        Directions directions = car.getDirection();
+        switch (directions){
+            case UP:
+                directions = Directions.LEFT;
+                break;
+            case RIGHT:
+                directions = Directions.UP;
+                break;
+            case DOWN:
+                directions = Directions.RIGHT;
+                break;
+            case LEFT:
+                directions = Directions.DOWN;
+                break;
+        }
+        setCar(x,y,directions);
+    }
+
+    public boolean withinGrid(int x,int y){
+        return x >= 0 && y >= 0 && x < size && y < size;
+    }
+
+    public void setCells(List<Cell> cells) {
+        this.cells = cells;
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public void setSize(int size) {
+        this.size = size;
+    }
+
+}

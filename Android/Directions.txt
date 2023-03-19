@@ -1,0 +1,9 @@
+﻿package com.mdp.team29;
+
+public enum  Directions {
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+    NULL
+}
